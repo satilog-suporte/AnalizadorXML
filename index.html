@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard XML CTe</title>
+    
+    <!-- Bibliotecas para Excel e ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <!-- Ícones -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --primary: #ff8c00; /* Laranja Escuro */
+            --primary-light: #ffa726; /* Laranja Claro */
+            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            --text-main: #2d3436;
+            --text-secondary: #636e72;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(28,100%,74%,0.2) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(189,100%,86%,0.2) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, hsla(28,100%,74%,0.2) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Animações */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        /* Estilo Vidro (Glassmorphism) */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            padding: 30px;
+            margin-bottom: 24px;
+            transition: transform 0.2s ease;
+        }
+
+        /* Header com Logo */
+        .header-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .logo-container img {
+            max-height: 65px;
+            width: auto;
+            border-radius: 8px;
+            /* Se a logo tiver fundo branco, isso ajuda a misturar */
+            mix-blend-mode: multiply; 
+        }
+
+        h1, h2, h3 { margin-top: 0; color: #2d3436; }
+        h1 { font-size: 1.8rem; display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
+        
+        /* Área de Upload */
+        .upload-area {
+            text-align: center;
+            border: 2px dashed #b2bec3;
+            border-radius: 12px;
+            padding: 50px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(255,255,255,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(255, 140, 0, 0.05);
+            transform: scale(1.01);
+        }
+        
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .btn-main {
+            border: none;
+            color: white;
+            background-color: var(--primary);
+            padding: 14px 36px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-main:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 140, 0, 0.4);
+            background-color: #f57c00;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .btn-download-zip {
+            background-color: white;
+            color: #2d3436;
+            border: 1px solid #dfe6e9;
+            border-radius: 8px;
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .btn-download-zip:hover { 
+            background-color: var(--primary); 
+            color: white;
+            border-color: var(--primary);
+        }
+
+        input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Dashboard Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.8);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 10px 0;
+            text-shadow: 0 2px 10px rgba(255, 140, 0, 0.15);
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 600;
+        }
+
+        /* Tabela */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255,255,255,0.4);
+        }
+        th, td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        th {
+            background-color: rgba(255, 255, 255, 0.6);
+            color: var(--primary);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        th:hover {
+            background-color: rgba(255, 140, 0, 0.1);
+        }
+        th i {
+            vertical-align: middle;
+            margin-left: 5px;
+            width: 14px;
+            height: 14px;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover {
+            background-color: rgba(255,255,255,0.8);
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 25px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            width: 0%;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Área de Erros */
+        .error-log {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 76, 76, 0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 76, 76, 0.2);
+            color: #d63031;
+            font-size: 0.9rem;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Utilitários */
+        .hidden { display: none !important; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .flex-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;}
+        .badge {
+            background: #fff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #555;
+            border: 1px solid #eee;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        .search-box input {
+            padding: 10px 15px 10px 40px; 
+            border-radius: 30px; 
+            border: 1px solid rgba(0,0,0,0.1); 
+            outline: none;
+            width: 250px;
+            background: rgba(255,255,255,0.6);
+            transition: all 0.2s;
+        }
+        .search-box input:focus {
+            background: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.1);
+            width: 300px;
+        }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            width: 18px;
+            height: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glass-panel fade-in">
+        <div class="flex-header">
+            <div class="header-container">
+                <!-- LOGO.png deve estar na mesma pasta deste arquivo HTML -->
+                <div class="logo-container">
+                    <img id="companyLogo" src="LOGO.png" alt="Logo" onerror="this.style.display='none'">
+                </div>
+                <div>
+                    <h1><i data-lucide="layers" style="color: var(--primary);"></i> Analisador CTe</h1>
+                    <p style="margin: 5px 0 0 2px; color: var(--text-secondary); font-size: 0.9rem;">Organizador Inteligente de XMLs</p>
+                </div>
+            </div>
+            
+            <button onclick="downloadReport()" id="btnExport" class="btn-main btn-small hidden" style="background-color: #27ae60;">
+                <i data-lucide="file-spreadsheet"></i> Relatório Geral
+            </button>
+        </div>
+
+        <div style="margin-top: 30px;" class="upload-area" id="dropZone">
+            <div class="upload-btn-wrapper">
+                <button class="btn-main">
+                    <i data-lucide="folder-search"></i> Selecionar Pasta
+                </button>
+                <!-- webkitdirectory permite selecionar pastas inteiras -->
+                <input type="file" id="folderInput" webkitdirectory directory multiple>
+            </div>
+            <p style="margin-top: 20px; color: #7f8c8d; font-weight: 500;">
+                Arraste uma pasta aqui ou clique para selecionar
+            </p>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p id="statusText" style="font-size: 0.9rem; color: #888; margin-top: 15px; font-weight: 500;"></p>
+        </div>
+
+        <!-- Área de Log de Erros -->
+        <div id="errorLog" class="error-log">
+            <strong><i data-lucide="alert-circle"></i> Arquivos ignorados (Incompatíveis/Sem CNPJ):</strong>
+            <ul id="errorList" style="margin: 10px 0 0 20px; padding: 0;"></ul>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboardSection" class="hidden fade-in">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total de Arquivos</div>
+                <div class="stat-value" id="totalFiles">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Empresas Encontradas</div>
+                <div class="stat-value" id="totalCompanies">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Volume Processado</div>
+                <div class="stat-value" id="totalSize" style="font-size: 1.8rem;">0 MB</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Maior Emissor</div>
+                <div class="stat-value" style="font-size: 1.1rem; line-height: 1.4; margin-top: 15px;" id="topIssuer">-</div>
+            </div>
+        </div>
+
+        <div class="glass-panel">
+            <div class="flex-between">
+                <h3 style="margin-bottom: 0;">Detalhes por Emitente</h3>
+                
+                <div class="search-box">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Filtrar por nome ou CNPJ...">
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('cnpj')">CNPJ <i data-lucide="arrow-up-down"></i></th>
+                            <th onclick="sortTable('nome')">Razão Social <i data-lucide="arrow-up-down"></i></th>
+                            <th onclick="sortTable('uf')">UF <i data-lucide="arrow-up-down"></i></th>
+                            <th onclick="sortTable('count')" style="text-align: center;">Qtd <i data-lucide="arrow-up-down"></i></th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Linhas geradas via JS -->
+                    </tbody>
+                </table>
+            </div>
+            <p id="noResultsMsg" class="hidden" style="text-align: center; color: #999; padding: 20px;">
+                Nenhum resultado encontrado para o filtro.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Inicializa ícones
+        lucide.createIcons();
+
+        const folderInput = document.getElementById('folderInput');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const statusText = document.getElementById('statusText');
+        const errorLog = document.getElementById('errorLog');
+        const errorList = document.getElementById('errorList');
+        const dashboardSection = document.getElementById('dashboardSection');
+        const resultsTableBody = document.querySelector('#resultsTable tbody');
+        const noResultsMsg = document.getElementById('noResultsMsg');
+
+        // Estrutura principal de dados
+        let database = {};
+        let errors = [];
+        let totalSizeBytes = 0;
+        let currentSort = { column: 'count', direction: 'desc' }; // Padrão: Qtd Decrescente
+
+        folderInput.addEventListener('change', handleFiles);
+
+        async function handleFiles(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+
+            resetApp();
+            
+            // Filtrar apenas XMLs
+            const xmlFiles = files.filter(f => f.name.toLowerCase().endsWith('.xml'));
+            const totalFiles = xmlFiles.length;
+            
+            if (totalFiles === 0) {
+                statusText.innerText = 'Nenhum arquivo XML encontrado na pasta selecionada.';
+                statusText.style.color = '#e74c3c';
+                return;
+            }
+
+            statusText.style.color = '#888';
+            progressBar.style.display = 'block';
+            
+            // Configuração de Lotes para Performance
+            const BATCH_SIZE = 50; 
+            
+            for (let i = 0; i < totalFiles; i += BATCH_SIZE) {
+                const batch = xmlFiles.slice(i, i + BATCH_SIZE);
+                
+                // Processa o lote em paralelo
+                await Promise.all(batch.map(file => processXMLFast(file)));
+
+                // Atualiza UI
+                const currentCount = Math.min(i + BATCH_SIZE, totalFiles);
+                const percent = Math.round((currentCount / totalFiles) * 100);
+                progressFill.style.width = percent + '%';
+                statusText.innerText = `Lendo arquivos: ${currentCount} de ${totalFiles}...`;
+
+                // Pausa para renderização
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            // Finalização
+            progressFill.style.width = '100%';
+            statusText.innerText = 'Processamento Concluído com Sucesso!';
+            statusText.style.color = '#27ae60';
+            renderDashboard();
+            document.getElementById('btnExport').classList.remove('hidden');
+        }
+
+        function resetApp() {
+            database = {};
+            errors = [];
+            totalSizeBytes = 0;
+            resultsTableBody.innerHTML = '';
+            errorList.innerHTML = '';
+            errorLog.style.display = 'none';
+            dashboardSection.classList.add('hidden');
+            document.getElementById('btnExport').classList.add('hidden');
+            noResultsMsg.classList.add('hidden');
+        }
+
+        async function processXMLFast(file) {
+            try {
+                totalSizeBytes += file.size;
+                const text = await file.text();
+
+                // Regex Otimizado para buscar dados do emitente
+                // Procura bloco <emit>
+                const emitMatch = text.match(/<emit>([\s\S]*?)<\/emit>/);
+
+                if (emitMatch) {
+                    const emitContent = emitMatch[1];
+                    
+                    const cnpjMatch = emitContent.match(/<CNPJ>(.*?)<\/CNPJ>/);
+                    const nomeMatch = emitContent.match(/<xNome>(.*?)<\/xNome>/);
+                    
+                    // Busca Inteligente de UF
+                    let uf = "N/A";
+                    const enderEmitMatch = emitContent.match(/<enderEmit>([\s\S]*?)<\/enderEmit>/);
+                    
+                    if (enderEmitMatch) {
+                        const ufMatch = enderEmitMatch[1].match(/<UF>(.*?)<\/UF>/);
+                        if (ufMatch) uf = ufMatch[1];
+                    } else {
+                        // Tenta achar UF solta no emit
+                        const ufMatchSimple = emitContent.match(/<UF>(.*?)<\/UF>/);
+                        if (ufMatchSimple) uf = ufMatchSimple[1];
+                    }
+
+                    if (cnpjMatch && cnpjMatch[1]) {
+                        const cnpj = cnpjMatch[1];
+                        const nome = nomeMatch ? nomeMatch[1] : "Nome Desconhecido";
+
+                        if (!database[cnpj]) {
+                            database[cnpj] = {
+                                cnpj: cnpj,
+                                nome: nome,
+                                uf: uf,
+                                count: 0,
+                                files: [] 
+                            };
+                        }
+                        database[cnpj].count++;
+                        database[cnpj].files.push(file);
+                    } else {
+                        logError(file.name, "CNPJ não encontrado dentro de <emit>");
+                    }
+                } else {
+                    logError(file.name, "Tag <emit> não encontrada no XML");
+                }
+
+            } catch (err) {
+                logError(file.name, "Arquivo corrompido ou ilegível");
+            }
+        }
+
+        function logError(fileName, reason) {
+            errors.push({ fileName, reason });
+        }
+
+        function formatCNPJ(value) {
+            return value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        function renderDashboard() {
+            dashboardSection.classList.remove('hidden');
+
+            // 1. Atualizar Erros
+            if (errors.length > 0) {
+                errorLog.style.display = 'block';
+                const showLimit = errors.length > 50 ? 50 : errors.length;
+                let html = '';
+                for(let i=0; i<showLimit; i++) {
+                    html += `<li><b>${errors[i].fileName}</b>: ${errors[i].reason}</li>`;
+                }
+                if(errors.length > 50) html += `<li>...e mais ${errors.length - 50} erros omitidos.</li>`;
+                errorList.innerHTML = html;
+            }
+
+            // 2. Estatísticas
+            const keys = Object.keys(database);
+            let totalFilesCount = 0;
+            let maxFiles = 0;
+            let topIssuerName = "-";
+
+            keys.forEach(key => {
+                const data = database[key];
+                totalFilesCount += data.count;
+                if(data.count > maxFiles) {
+                    maxFiles = data.count;
+                    topIssuerName = data.nome;
+                }
+            });
+
+            document.getElementById('totalFiles').innerText = totalFilesCount;
+            document.getElementById('totalCompanies').innerText = keys.length;
+            document.getElementById('totalSize').innerText = formatBytes(totalSizeBytes);
+            document.getElementById('topIssuer').innerText = topIssuerName.length > 30 ? topIssuerName.substring(0, 27) + '...' : topIssuerName;
+
+            // 3. Renderizar Tabela Inicial (Ordenada)
+            renderTable();
+        }
+
+        // Função de Ordenação
+        function sortTable(column) {
+            // Se clicar na mesma coluna, inverte a ordem
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+                // Padrão para contagem é decrescente
+                if (column === 'count') currentSort.direction = 'desc';
+            }
+            renderTable();
+        }
+
+        function renderTable(filterTerm = '') {
+            resultsTableBody.innerHTML = '';
+            let keys = Object.keys(database);
+
+            // Filtragem
+            if (filterTerm) {
+                keys = keys.filter(key => {
+                    const data = database[key];
+                    return data.cnpj.includes(filterTerm) || 
+                           data.nome.toLowerCase().includes(filterTerm);
+                });
+            }
+
+            if (keys.length === 0) {
+                noResultsMsg.classList.remove('hidden');
+                return;
+            } else {
+                noResultsMsg.classList.add('hidden');
+            }
+
+            // Ordenação
+            keys.sort((a, b) => {
+                const valA = database[a][currentSort.column];
+                const valB = database[b][currentSort.column];
+
+                if (typeof valA === 'string') {
+                    return currentSort.direction === 'asc' 
+                        ? valA.localeCompare(valB) 
+                        : valB.localeCompare(valA);
+                } else {
+                    return currentSort.direction === 'asc' 
+                        ? valA - valB 
+                        : valB - valA;
+                }
+            });
+
+            keys.forEach(cnpj => {
+                const data = database[cnpj];
+                const tr = document.createElement('tr');
+                
+                tr.innerHTML = `
+                    <td style="font-family: monospace; font-size: 1em; color: #555;">${formatCNPJ(data.cnpj)}</td>
+                    <td><b>${data.nome}</b></td>
+                    <td><span class="badge">${data.uf}</span></td>
+                    <td style="text-align: center; font-weight: bold; font-size: 1.1em;">${data.count}</td>
+                    <td>
+                        <button class="btn-download-zip" onclick="downloadZip('${data.cnpj}')">
+                            <i data-lucide="download-cloud"></i> Baixar ZIP
+                        </button>
+                    </td>
+                `;
+                resultsTableBody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        // Filtro de Busca
+        document.getElementById('searchInput').addEventListener('keyup', function(e) {
+            const term = e.target.value.toLowerCase().trim();
+            renderTable(term);
+        });
+
+        async function downloadZip(cnpj) {
+            const data = database[cnpj];
+            if (!data) return;
+
+            // Feedback visual no botão
+            const btn = event.currentTarget; // Captura o botão clicado
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Gerando...`;
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const zip = new JSZip();
+                const folderName = `${data.nome.substring(0, 15).replace(/[^a-z0-9]/gi, '_')}_${cnpj}`;
+                const folder = zip.folder(folderName);
+
+                data.files.forEach(file => {
+                    folder.file(file.name, file);
+                });
+
+                const content = await zip.generateAsync({ type: "blob" });
+                saveAs(content, `CTEs_${folderName}.zip`);
+            } catch (e) {
+                alert("Erro ao gerar ZIP");
+            } finally {
+                // Restaura botão
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        function downloadReport() {
+            const wb = XLSX.utils.book_new();
+            
+            const wsData = [
+                ["CNPJ", "Razão Social", "UF", "Quantidade de Arquivos"]
+            ];
+
+            // Exporta respeitando a ordem atual da tabela
+            // Precisamos re-obter as chaves ordenadas
+            let keys = Object.keys(database);
+            keys.sort((a, b) => {
+                const valA = database[a][currentSort.column];
+                const valB = database[b][currentSort.column];
+                 if (typeof valA === 'string') {
+                    return currentSort.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+                }
+            });
+
+            keys.forEach(key => {
+                const d = database[key];
+                wsData.push([d.cnpj, d.nome, d.uf, d.count]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            
+            // Ajuste de largura de colunas
+            const wscols = [
+                {wch: 20}, // CNPJ
+                {wch: 40}, // Nome
+                {wch: 5},  // UF
+                {wch: 15}  // Qtd
+            ];
+            ws['!cols'] = wscols;
+
+            XLSX.utils.book_append_sheet(wb, ws, "Resumo CTEs");
+            XLSX.writeFile(wb, "Relatorio_Geral_XML.xlsx");
+        }
+
+    </script>
+    <style>
+        /* Animação de loading para o botão */
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</body>
+</html>
